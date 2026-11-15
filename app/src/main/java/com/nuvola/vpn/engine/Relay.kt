@@ -15,14 +15,10 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.withPermit
 import kotlin.random.Random
 
-/**
- * Motor del cliente NuvolaVPN.
- */
 class Relay(
     private val cfg: TunnelConfig,
     private val crypto: Crypto,
@@ -85,7 +81,7 @@ class Relay(
     }
 
     private suspend fun acceptLoop(server: ServerSocket) {
-        while (running && isActive) {
+        while (running && scope.isActive) {
             val client = try {
                 server.accept()
             } catch (e: Exception) {
@@ -106,9 +102,7 @@ class Relay(
             val conn = Conn(connId, sock, cfg.inflight)
             conns[connId] = conn
 
-            sock.getOutputStream().write(
-                byteArrayOf(0x05, 0x00, 0x00, 0x01, 0, 0, 0, 0, 0, 0)
-            )
+            sock.getOutputStream().write(byteArrayOf(0x05, 0x00, 0x00, 0x01, 0, 0, 0, 0, 0, 0))
             sock.getOutputStream().flush()
 
             val openBody = Compress.compress(Proto.packOpen(connId, host, port))
@@ -170,7 +164,7 @@ class Relay(
 
     private suspend fun pollLoop() {
         var backoff = BACKOFF_MIN_MS
-        while (running && isActive) {
+        while (running && scope.isActive) {
             val found = try {
                 pollOnce()
             } catch (e: Exception) {

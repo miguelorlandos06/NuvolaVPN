@@ -12,6 +12,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.getValue
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nuvola.vpn.service.TunnelVpnService
@@ -20,47 +21,28 @@ import com.nuvola.vpn.ui.HomeScreen
 import com.nuvola.vpn.ui.TunnelViewModel
 
 class MainActivity : ComponentActivity() {
-
     private val vm: TunnelViewModel by viewModels()
 
-    private val vpnPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult(),
-    ) { result ->
-        if (result.resultCode == RESULT_OK) {
-            startTunnelService()
-        } else {
-            vm.markError("Permiso VPN denegado")
-        }
+    private val vpnPermissionLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == RESULT_OK) startTunnelService() else vm.markError("Permiso VPN denegado")
     }
 
-    private val notifPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission(),
-    ) { granted ->
+    private val notifPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (!granted) vm.markError("Notificaciones desactivadas")
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        // Android 13+: pedir POST_NOTIFICATIONS para la notificacion del FGS
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            val granted = ContextCompat.checkSelfPermission(
-                this, Manifest.permission.POST_NOTIFICATIONS
-            ) == PackageManager.PERMISSION_GRANTED
-            if (!granted) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                 notifPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
             }
         }
-
         setContent {
             NuvolaTheme {
                 Surface(color = MaterialTheme.colorScheme.background) {
                     val state by vm.state.collectAsStateWithLifecycle()
-                    HomeScreen(
-                        state = state,
-                        onConnect = ::requestVpnPermissionAndStart,
-                        onDisconnect = ::stopTunnelService,
-                    )
+                    HomeScreen(state = state, onConnect = ::requestVpnPermissionAndStart, onDisconnect = ::stopTunnelService)
                 }
             }
         }
@@ -69,25 +51,16 @@ class MainActivity : ComponentActivity() {
     private fun requestVpnPermissionAndStart() {
         vm.markPreparing()
         val intent = VpnService.prepare(this)
-        if (intent != null) {
-            vpnPermissionLauncher.launch(intent)
-        } else {
-            // Ya concedido
-            startTunnelService()
-        }
+        if (intent != null) vpnPermissionLauncher.launch(intent) else startTunnelService()
     }
 
     private fun startTunnelService() {
-        val svc = Intent(this, TunnelVpnService::class.java).apply {
-            action = TunnelVpnService.ACTION_START
-        }
+        val svc = Intent(this, TunnelVpnService::class.java).apply { action = TunnelVpnService.ACTION_START }
         ContextCompat.startForegroundService(this, svc)
     }
 
     private fun stopTunnelService() {
-        val svc = Intent(this, TunnelVpnService::class.java).apply {
-            action = TunnelVpnService.ACTION_STOP
-        }
+        val svc = Intent(this, TunnelVpnService::class.java).apply { action = TunnelVpnService.ACTION_STOP }
         startService(svc)
     }
 }
