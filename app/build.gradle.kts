@@ -42,6 +42,7 @@ android {
 }
 
 dependencies {
+    implementation("com.zaneschepke:hevtunnel:1.0.1")
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.4")
@@ -56,6 +57,4 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 
-    // AAR precompilado de hev-socks5-tunnel
-    implementation(files("libs/hev-socks5-tunnel.aar"))
 }
