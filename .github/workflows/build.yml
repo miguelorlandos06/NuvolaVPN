@@ -33,8 +33,6 @@ jobs:
           mkdir -p app/src/main/jni
           git clone --recursive https://github.com/heiher/hev-socks5-tunnel app/src/main/jni/hev-socks5-tunnel
           echo 'include $(call all-subdir-makefiles)' > app/src/main/jni/Android.mk
-          
-          # Compilar con el PKGNAME correcto para que el JNI registre en com.nuvola.vpn.engine.TProxyService
           "$NDK_HOME/ndk-build" \
             NDK_PROJECT_PATH=app/src/main/jni \
             APP_BUILD_SCRIPT=app/src/main/jni/Android.mk \
@@ -43,9 +41,7 @@ jobs:
             "APP_CFLAGS=-O3 -DPKGNAME=com/nuvola/vpn/engine" \
             NDK_LIBS_OUT=app/src/main/jniLibs \
             NDK_OUT=app/build/ndk-obj
-          
           rm -f app/src/main/jniLibs/arm64-v8a/hev-socks5-tunnel-bin
-          ls -la app/src/main/jniLibs/arm64-v8a/
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
@@ -53,12 +49,15 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x ./gradlew
 
-      - name: Build Debug APK
-        run: ./gradlew assembleDebug --stacktrace
+      - name: Build Release APK
+        run: ./gradlew assembleRelease --stacktrace
 
-      - name: Upload APK
+      - name: Rename Release APK
+        run: mv app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/NuvolaVPN-release.apk
+
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: nuvolavpn-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: NuvolaVPN-release-apk
+          path: app/build/outputs/apk/release/NuvolaVPN-release.apk
           retention-days: 14
