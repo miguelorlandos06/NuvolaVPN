@@ -41,9 +41,16 @@ android {
     }
 }
 
+// Forzar versiones compatibles de androidx.core para evitar el error de AAR metadata
+configurations.all {
+    resolutionStrategy {
+        force("androidx.core:core:1.13.1")
+        force("androidx.core:core-ktx:1.13.1")
+    }
+}
+
 dependencies {
-    implementation("com.zaneschepke:hevtunnel:1.0.1")
-    implementation("androidx.core:core-ktx:1.13.1") { force = true }
+    implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.4")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.4")
@@ -57,4 +64,6 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 
+    // Dependencia de Maven para hev-socks5-tunnel
+    implementation("com.zaneschepke:hevtunnel:1.0.1")
 }
