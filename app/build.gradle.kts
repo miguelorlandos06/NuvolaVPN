@@ -1,7 +1,6 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
-    id("org.jetbrains.kotlin.plugin.compose")
 }
 
 android {
@@ -18,12 +17,7 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = true
-            isShrinkResources = true
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
+            isMinifyEnabled = false
         }
         debug {
             isMinifyEnabled = false
@@ -36,7 +30,7 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true }
-    // composeOptions ya no se usa con Kotlin 2.0 (lo maneja el plugin de Compose)
+    composeOptions { kotlinCompilerExtensionVersion = "1.5.14" }
     packaging {
         resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" }
     }
@@ -63,6 +57,4 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
-
-    implementation("com.zaneschepke:hevtunnel:1.0.1")
 }

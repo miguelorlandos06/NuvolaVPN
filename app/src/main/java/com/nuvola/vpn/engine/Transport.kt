@@ -11,17 +11,17 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 
 /**
- * Cliente HTTP hacia el S3 usando OkHttp con un SocketFactory que
- * protege cada socket con VpnService.protect() ANTES de conectar.
- * Sin esto, el trafico HTTPS al S3 entra al TUN y se produce un bucle.
+ * Cliente HTTP hacia el S3.
+ * Optimizado con timeouts y reintentos de la captura de referencia.
  */
 class Transport(
+    private val 
     private val vpnService: VpnService,
     base: String,
     private val bucket: String,
-    userAgent: String = "NuvolaVPN/1.0",
-    timeoutSec: Long = 40,
-    private val maxRetries: Int = 5,
+    
+    timeoutSec: Long = 20, // HTTP_TIMEOUT = 20s
+    private val maxRetries: Int = 3, // HTTP_RETRIES = 3
 ) {
 
     private val base = base.trimEnd('/')

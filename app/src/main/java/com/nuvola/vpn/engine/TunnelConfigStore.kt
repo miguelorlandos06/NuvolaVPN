@@ -10,13 +10,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
-/**
- * Carga la configuracion del motor desde assets/config.json.
- * El JSON tiene la misma estructura que config.client.json:
- *   { "todus_relay": { "s3_base": "...", "bucket": "...", ... } }
- *
- * Tambien acepta un JSON plano (sin la clave "todus_relay").
- */
 class TunnelConfigStore(private val context: Context) {
 
     companion object {
@@ -27,7 +20,6 @@ class TunnelConfigStore(private val context: Context) {
     private val _config = MutableStateFlow(TunnelConfig())
     val config: StateFlow<TunnelConfig> = _config.asStateFlow()
 
-    /** Lee assets/config.json y actualiza el StateFlow. */
     suspend fun load(): TunnelConfig = withContext(Dispatchers.IO) {
         val cfg = try {
             parse(readAsset(ASSET_NAME))
@@ -36,11 +28,10 @@ class TunnelConfigStore(private val context: Context) {
             TunnelConfig()
         }
         _config.value = cfg
-        Log.i(TAG, "config cargada: chan=${cfg.chan.take(8)}… valid=${cfg.isValid()}")
+        Log.i(TAG, "config cargada: chan=${cfg.chan.take(8)}… valid=${cfg.isValid()} chunkKb=${cfg.chunkKb} pollMs=${cfg.pollMs}")
         cfg
     }
 
-    /** Permite inyectar una config desde codigo (tests, debug). */
     fun override(cfg: TunnelConfig) {
         _config.value = cfg
     }
@@ -61,12 +52,13 @@ class TunnelConfigStore(private val context: Context) {
             bucket = obj.optString("bucket", TunnelConfig.DEFAULT_BUCKET),
             chan = obj.optString("chan", ""),
             psk = obj.optString("psk", ""),
-            chunkKb = obj.optInt("chunk_kb", 32),
-            pollMs = obj.optInt("poll_ms", 100),
+            chunkKb = obj.optInt("chunk_kb", 256),
+            pollMs = obj.optInt("poll_ms", 50),
             workers = obj.optInt("workers", 8),
-            inflight = obj.optInt("inflight", 32),
+            inflight = obj.optInt("inflight", 64),
             compress = obj.optBoolean("compress", true),
             listen = obj.optString("listen", TunnelConfig.DEFAULT_LISTEN),
+            dialTimeoutS = obj.optInt("dial_timeout_s", 30),
         )
     }
 }

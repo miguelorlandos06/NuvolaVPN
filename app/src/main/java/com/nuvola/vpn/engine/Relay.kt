@@ -15,23 +15,19 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.withPermit
+import kotlin.random.Random
 
 /**
  * Motor del cliente NuvolaVPN.
- *
- * - Acepta SOCKS5 en 127.0.0.1:<port>.
- * - Por cada conexion aceptada crea un Conn y manda T_OPEN al S3.
- * - Hilo de lectura local -> DATA hacia el S3 (con semaforo inflight).
- * - Bucle de polling que LIST/GET/DELETE sobre chan/s/ y despacha DATA/FIN.
- *
- * Todo el estado del tunel vive aqui; la UI lo observa via TunnelStateRepository.
  */
 class Relay(
     private val cfg: TunnelConfig,
     private val crypto: Crypto,
     private val transport: Transport,
+    private val deviceId: String,
 ) {
     companion object {
         private const val TAG = "NuvolaRelay"
@@ -62,14 +58,10 @@ class Relay(
     private var listenJob: Job? = null
     private var listenSocket: ServerSocket? = null
 
-    // ---------------------------------------------------------------
-    // Ciclo de vida
-    // ---------------------------------------------------------------
-
     fun start() {
         if (running) return
         running = true
-        Log.i(TAG, "Relay start | chan=$chan | listen=${cfg.listen}")
+        Log.i(TAG, "Relay start | chan=$chan | listen=${cfg.listen} | device=$deviceId")
 
         val (host, port) = parseListen(cfg.listen)
         val server = ServerSocket(port, 64, InetAddress.getByName(host))
@@ -91,10 +83,6 @@ class Relay(
         scope.cancel()
         Log.i(TAG, "Relay stop")
     }
-
-    // ---------------------------------------------------------------
-    // SOCKS5 accept loop
-    // ---------------------------------------------------------------
 
     private suspend fun acceptLoop(server: ServerSocket) {
         while (running && isActive) {
@@ -180,10 +168,6 @@ class Relay(
         c.closeQuietly()
     }
 
-    // ---------------------------------------------------------------
-    // Polling de s/<id>/<seq>
-    // ---------------------------------------------------------------
-
     private suspend fun pollLoop() {
         var backoff = BACKOFF_MIN_MS
         while (running && isActive) {
@@ -244,10 +228,6 @@ class Relay(
         return found
     }
 
-    // ---------------------------------------------------------------
-    // SOCKS5 handshake / request
-    // ---------------------------------------------------------------
-
     private fun socks5Handshake(sock: Socket): Boolean {
         val ins = sock.getInputStream()
         val ver = ins.read(); val n = ins.read()
@@ -295,14 +275,10 @@ class Relay(
         }
     }
 
-    // ---------------------------------------------------------------
-    // Utilidades
-    // ---------------------------------------------------------------
-
     private fun newConnId(): String {
-        val v = (connCounter.incrementAndGet() and 0xFFFF)
-        val rnd = (0..0xFFFF).random()
-        return "%04x%04x".format(v, rnd)
+        val counter = (connCounter.incrementAndGet() and 0xFFFF).toString(16).padStart(4, '0')
+        val rnd = Random.nextInt(0x10000).toString(16).padStart(4, '0')
+        return "${deviceId}${counter}${rnd}".substring(0, 8)
     }
 
     private fun parseListen(s: String): Pair<String, Int> {

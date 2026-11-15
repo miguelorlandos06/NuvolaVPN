@@ -4,12 +4,13 @@
     "bucket": "stickers",
     "chan": "eded311cd9ad19d0",
     "psk": "YyHO6lYLUpfUDaTClxYe2cTmEKv1Cd3vX-B1oFFf8wU",
-    "chunk_kb": 32,
-    "poll_ms": 100,
+    "chunk_kb": 256,
+    "poll_ms": 50,
     "workers": 8,
-    "inflight": 32,
+    "inflight": 64,
     "gc_hours": 24,
     "compress": true,
-    "listen": "127.0.0.1:1080"
+    "listen": "127.0.0.1:1080",
+    "dial_timeout_s": 30
   }
 }

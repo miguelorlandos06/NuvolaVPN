@@ -3,7 +3,6 @@ package com.nuvola.vpn.service
 import android.app.Service
 import android.content.Intent
 import android.net.VpnService
-import android.os.Build
 import android.os.IBinder
 import android.os.ParcelFileDescriptor
 import android.util.Log
@@ -23,22 +22,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.io.File
+import java.security.MessageDigest
 
-/**
- * Servicio VPN de NuvolaVPN.
- *
- * Responsabilidades:
- *  1. startForeground() con notificacion persistente (obligatorio Android 8+).
- *  2. Leer TunnelConfig desde assets (TunnelConfigStore).
- *  3. Crear la interfaz TUN con VpnService.Builder.
- *  4. Escribir hev-socks5-tunnel.yml a disco (la lib nativa lo lee con fopen).
- *  5. Arrancar Relay (SOCKS5 -> S3) en 127.0.0.1:1080.
- *  6. Arrancar Tun2Socks con el fd del TUN y el YAML.
- *  7. Publicar estado y stats en TunnelStateRepository.
- *
- * Sin protect() en el socket S3 el tunel se loopbackea y la app deja de
- * responder. Transport ya protege cada socket antes de conectar.
- */
 class TunnelVpnService : VpnService() {
 
     companion object {
@@ -88,19 +73,11 @@ class TunnelVpnService : VpnService() {
         super.onRevoke()
     }
 
-    // ---------------------------------------------------------------
-    // Start / Stop
-    // ---------------------------------------------------------------
-
     private fun startTunnel() {
-        if (running) {
-            Log.w(TAG, "startTunnel() ignorado: ya corriendo")
-            return
-        }
+        if (running) return
         running = true
         repo.markConnecting()
 
-        // 1. Foreground + notificacion
         startForeground(
             NotificationHelper.NOTIF_ID,
             NotificationHelper.build(this, getString(R.string.notif_connecting)),
@@ -122,7 +99,6 @@ class TunnelVpnService : VpnService() {
     }
 
     private suspend fun bootTunnel() {
-        // 2. Config
         val cfg = configStore.load()
         if (!cfg.isValid()) {
             repo.markError("config invalida (chan/psk)")
@@ -130,7 +106,6 @@ class TunnelVpnService : VpnService() {
             return
         }
 
-        // 3. TUN
         val builder = Builder()
             .setSession("NuvolaVPN")
             .setMtu(MTU)
@@ -138,8 +113,9 @@ class TunnelVpnService : VpnService() {
             .addRoute("0.0.0.0", 0)
             .addDnsServer(VIRTUAL_DNS)
             .setBlocking(false)
-        // Excluir la propia app del TUN: no queremos loopbackear nuestro HTTPS al S3
+        
         try { builder.addDisallowedApplication(packageName) } catch (_: Exception) {}
+        
         val fd = builder.establish() ?: run {
             repo.markError("Builder.establish() devolvio null")
             stopTunnel()
@@ -147,22 +123,32 @@ class TunnelVpnService : VpnService() {
         }
         tunFd = fd
 
-        // 4. YAML a disco (la lib nativa lo lee con fopen)
         val yamlPath = writeYaml(cfg)
 
-        // 5. Relay (SOCKS5 -> S3)
         val crypto = Crypto(cfg.psk, cfg.chan)
+        
+        // Timeout y reintentos optimizados
         val transport = Transport(
             vpnService = this,
             base = cfg.s3Base,
             bucket = cfg.bucket,
+            timeoutSec = 20, // HTTP_TIMEOUT = 20s
+            maxRetries = 3,  // HTTP_RETRIES = 3
         )
-        val r = Relay(cfg, crypto, transport)
+        
+        val androidId = android.provider.Settings.Secure.getString(
+            contentResolver, android.provider.Settings.Secure.ANDROID_ID
+        ) ?: "unknown"
+        val devHash = MessageDigest.getInstance("SHA-256")
+            .digest(androidId.toByteArray())
+            .take(2)
+            .joinToString("") { "%02x".format(it) }
+
+        val r = Relay(cfg, crypto, transport, devHash)
         r.start()
         relay = r
         repo.attachRelay(r)
 
-        // 6. Tun2Socks (TUN -> SOCKS5 local)
         val ok = Tun2Socks.start(fd.fileDescriptor, yamlPath)
         if (!ok) {
             Log.e(TAG, "Tun2Socks.start() fallo")
@@ -174,7 +160,6 @@ class TunnelVpnService : VpnService() {
             return
         }
 
-        // 7. Notificacion con contador + estado Connected
         repo.markConnected()
         NotificationHelper.update(this, getString(R.string.notif_connected))
         startNotifLoop()
@@ -203,10 +188,6 @@ class TunnelVpnService : VpnService() {
         Log.i(TAG, "tunel detenido")
     }
 
-    // ---------------------------------------------------------------
-    // YAML para hev-socks5-tunnel
-    // ---------------------------------------------------------------
-
     private fun writeYaml(cfg: TunnelConfig): String {
         val file = File(filesDir, YAML_NAME)
         val socksPort = cfg.listen.substringAfterLast(':').toIntOrNull() ?: 1080
@@ -232,19 +213,14 @@ class TunnelVpnService : VpnService() {
             appendLine()
             appendLine("misc:")
             appendLine("  task-stack-size: 20480")
-            appendLine("  connect-timeout: 5000")
+            appendLine("  connect-timeout: ${cfg.dialTimeoutS * 1000}") // CONNECT_TIMEOUT
             appendLine("  read-write-timeout: 60000")
             appendLine("  log-file: stderr")
             appendLine("  log-level: warn")
         }
         file.writeText(yaml)
-        Log.i(TAG, "yaml escrito en $file")
         return file.absolutePath
     }
-
-    // ---------------------------------------------------------------
-    // Notificacion periodica con contadores
-    // ---------------------------------------------------------------
 
     private fun startNotifLoop() {
         notifJob?.cancel()
