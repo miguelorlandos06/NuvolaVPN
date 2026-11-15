@@ -1,0 +1,25 @@
+tunnel:
+  name: tun0
+  mtu: 1500
+  ipv4: 198.18.0.1
+  ipv6: 'fc00::1'
+
+socks5:
+  port: 1080
+  address: 127.0.0.1
+  udp: 'udp'
+  pipeline: false
+
+mapdns:
+  address: 198.18.0.2
+  port: 53
+  network: 240.0.0.0
+  netmask: 240.0.0.0
+  cache-size: 10000
+
+misc:
+  task-stack-size: 20480
+  connect-timeout: 5000
+  read-write-timeout: 60000
+  log-file: stderr
+  log-level: warn

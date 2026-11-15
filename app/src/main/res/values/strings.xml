@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">NuvolaVPN</string>
+    <string name="notif_channel_name">NuvolaVPN</string>
+    <string name="notif_title">NuvolaVPN</string>
+    <string name="notif_connecting">Conectando…</string>
+    <string name="notif_connected">Túnel activo</string>
+    <string name="notif_disconnected">Túnel detenido</string>
+</resources>
