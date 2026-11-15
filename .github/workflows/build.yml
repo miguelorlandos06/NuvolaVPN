@@ -8,7 +8,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
 
     steps:
       - name: Checkout
@@ -20,10 +20,28 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Setup Android SDK
+      - name: Setup Android SDK + NDK
         uses: android-actions/setup-android@v3
         with:
-          packages: 'platform-tools platforms;android-34 build-tools;34.0.0'
+          packages: 'platform-tools platforms;android-34 build-tools;34.0.0 ndk;26.3.11579264'
+
+      - name: Export NDK env
+        run: echo "NDK_HOME=$ANDROID_HOME/ndk/26.3.11579264" >> $GITHUB_ENV
+
+      - name: Build libhev-socks5-tunnel.so
+        run: |
+          mkdir -p app/src/main/jni
+          git clone --recursive https://github.com/heiher/hev-socks5-tunnel app/src/main/jni/hev-socks5-tunnel
+          echo 'include $(call all-subdir-makefiles)' > app/src/main/jni/Android.mk
+          "$NDK_HOME/ndk-build" \
+            NDK_PROJECT_PATH=app/src/main/jni \
+            APP_BUILD_SCRIPT=app/src/main/jni/Android.mk \
+            APP_ABI=arm64-v8a \
+            APP_PLATFORM=android-26 \
+            NDK_LIBS_OUT=app/src/main/jniLibs \
+            NDK_OUT=app/build/ndk-obj
+          mv app/src/main/jniLibs/arm64-v8a/libhev-socks5-tunnel.so app/src/main/jniLibs/arm64-v8a/libtun2socks.so
+          ls -la app/src/main/jniLibs/arm64-v8a/
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
