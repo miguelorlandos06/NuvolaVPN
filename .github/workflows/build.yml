@@ -44,6 +44,7 @@ jobs:
             NDK_LIBS_OUT=app/src/main/jniLibs \
             NDK_OUT=app/build/ndk-obj
           
+          rm -f app/src/main/jniLibs/arm64-v8a/hev-socks5-tunnel-bin
           ls -la app/src/main/jniLibs/arm64-v8a/
 
       - name: Setup Gradle
