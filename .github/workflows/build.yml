@@ -28,9 +28,22 @@ jobs:
       - name: Download hev-socks5-tunnel AAR
         run: |
           mkdir -p app/libs
-          curl -L --fail --connect-timeout 30 --max-time 300 \
-            -o app/libs/hev-socks5-tunnel.aar \
-            https://github.com/heiher/hev-socks5-tunnel/releases/download/2.14.4/hev-socks5-tunnel.aar
+          # Obtener la URL real del asset desde la API de GitHub
+          ASSET_URL=$(curl -sL https://api.github.com/repos/heiher/hev-socks5-tunnel/releases/tags/2.14.4 \
+            | grep -o '"browser_download_url": *"[^"]*\.aar"' \
+            | head -1 \
+            | cut -d'"' -f4)
+          
+          if [ -z "$ASSET_URL" ]; then
+            echo "❌ No se encontró ningún .aar en el release 2.14.4"
+            echo "Assets disponibles:"
+            curl -sL https://api.github.com/repos/heiher/hev-socks5-tunnel/releases/tags/2.14.4 \
+              | grep '"name"'
+            exit 1
+          fi
+          
+          echo "Descargando: $ASSET_URL"
+          curl -L --fail --connect-timeout 30 --max-time 300 -o app/libs/hev-socks5-tunnel.aar "$ASSET_URL"
           ls -la app/libs/
           test -f app/libs/hev-socks5-tunnel.aar
 
